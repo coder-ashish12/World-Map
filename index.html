@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.15);
+    --text: #f0eff5;
+    --muted: #7a798a;
+    --accent: #c8b8ff;
+    --accent2: #7fd8b4;
+    --accent3: #ffb86c;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* NOISE TEXTURE */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  /* HEADER */
+  header {
+    position: relative;
+    z-index: 10;
+    padding: 3rem 2rem 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 2.5rem;
+  }
+
+  .logo span { color: var(--accent); }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.75rem;
+  }
+
+  h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .subtitle {
+    font-size: 1.05rem;
+    color: var(--muted);
+    font-weight: 300;
+    margin-bottom: 0;
+  }
+
+  /* FILTER SECTION */
+  .filter-section {
+    position: relative;
+    z-index: 10;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem 2.5rem;
+  }
+
+  .filter-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .filter-scroll {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 400;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 0.5px solid var(--border-hover);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .filter-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(200, 184, 255, 0.06);
+  }
+
+  .filter-btn.active {
+    border-color: var(--accent);
+    background: rgba(200, 184, 255, 0.12);
+    color: var(--accent);
+  }
+
+  /* DIVIDER */
+  .divider {
+    max-width: 1200px;
+    margin: 0 auto 2.5rem;
+    padding: 0 2rem;
+    border-top: 0.5px solid var(--border);
+  }
+
+  /* CONTINENT GRID */
+  #continent-view {
+    position: relative;
+    z-index: 10;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem 4rem;
+  }
+
+  .section-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.25rem;
+  }
+
+  .continent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 0.5px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .continent-card {
+    background: var(--surface);
+    padding: 2rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .continent-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(200,184,255,0.04) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .continent-card:hover {
+    background: var(--surface2);
+  }
+
+  .continent-card:hover::after { opacity: 1; }
+
+  .continent-card.hidden { display: none; }
+
+  .continent-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .continent-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+  }
+
+  .continent-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.06);
+    line-height: 1;
+  }
+
+  .continent-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .continent-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .continent-count {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .continent-count strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .continent-arrow {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 0.5px solid var(--border-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 0.75rem;
+    transition: all 0.2s;
+  }
+
+  .continent-card:hover .continent-arrow {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(200, 184, 255, 0.1);
+  }
+
+  .continent-regions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .region-tag {
+    font-size: 0.67rem;
+    padding: 3px 8px;
+    border-radius: 100px;
+    background: rgba(255,255,255,0.04);
+    border: 0.5px solid var(--border);
+    color: var(--muted);
+    letter-spacing: 0.03em;
+  }
+
+  /* COUNTRY VIEW */
+  #country-view {
+    display: none;
+    position: relative;
+    z-index: 10;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem 4rem;
+  }
+
+  .back-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    color: var(--muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    margin-bottom: 2rem;
+    transition: color 0.2s;
+  }
+
+  .back-btn:hover { color: var(--text); }
+
+  .country-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .country-header-left h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.4rem;
+  }
+
+  .country-header-left p {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .country-stats {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .stat-block { text-align: right; }
+
+  .stat-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .stat-lbl {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* REGION FILTER FOR COUNTRIES */
+  .country-region-filter {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
+  /* COUNTRY GRID */
+  .country-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 0.5px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .country-card {
+    background: var(--surface);
+    padding: 1.25rem 1.5rem;
+    transition: background 0.2s;
+  }
+
+  .country-card:hover { background: var(--surface2); }
+  .country-card.hidden { display: none; }
+
+  .cc-flag {
+    font-size: 1.6rem;
+    margin-bottom: 0.75rem;
+    line-height: 1;
+  }
+
+  .cc-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.01em;
+  }
+
+  .cc-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .cc-detail {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+  }
+
+  .cc-detail-key {
+    color: var(--muted);
+    min-width: 52px;
+    flex-shrink: 0;
+  }
+
+  .cc-detail-val {
+    color: var(--text);
+    font-weight: 400;
+  }
+
+  .cc-badge {
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 100px;
+    background: rgba(127,216,180,0.1);
+    border: 0.5px solid rgba(127,216,180,0.2);
+    color: var(--accent2);
+    margin-left: auto;
+  }
+
+  /* NO RESULTS */
+  .no-results {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    display: none;
+    grid-column: 1 / -1;
+    background: var(--surface);
+  }
+
+  /* SEARCH BAR */
+  .search-wrap {
+    position: relative;
+    margin-bottom: 1.5rem;
+    max-width: 360px;
+  }
+
+  .search-wrap svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  #country-search {
+    width: 100%;
+    background: var(--surface);
+    border: 0.5px solid var(--border-hover);
+    border-radius: 100px;
+    padding: 9px 16px 9px 38px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  #country-search:focus { border-color: var(--accent); }
+  #country-search::placeholder { color: var(--muted); }
+
+  /* GLOW BLOBS */
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.12;
+  }
+
+  .blob-1 {
+    width: 600px; height: 600px;
+    background: #7c5cbf;
+    top: -200px; right: -200px;
+  }
+
+  .blob-2 {
+    width: 400px; height: 400px;
+    background: #2d8a6c;
+    bottom: 100px; left: -150px;
+  }
+
+  @media (max-width: 640px) {
+    header { padding: 2rem 1rem 1.5rem; }
+    .filter-section, .divider, #continent-view, #country-view { padding-left: 1rem; padding-right: 1rem; }
+    .continent-grid, .country-grid { border-radius: 12px; }
+    .stat-block { text-align: left; }
+    .country-stats { gap: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<header>
+  <div class="logo">&#9679; <span>World</span> Explorer</div>
+  <h1>Explore the<br><em>World</em></h1>
+  <p class="subtitle">8 continents · 195 countries · every region on Earth</p>
+</header>
+
+<!-- REGION FILTER -->
+<div class="filter-section">
+  <div class="filter-label">Filter by region</div>
+  <div class="filter-scroll" id="filter-bar">
+    <button class="filter-btn active" data-region="all">All regions</button>
+    <button class="filter-btn" data-region="Western Europe">Western Europe</button>
+    <button class="filter-btn" data-region="Eastern Europe">Eastern Europe</button>
+    <button class="filter-btn" data-region="Northern Europe">Northern Europe</button>
+    <button class="filter-btn" data-region="Southern Europe">Southern Europe</button>
+    <button class="filter-btn" data-region="Middle East">Middle East</button>
+    <button class="filter-btn" data-region="Central Asia">Central Asia</button>
+    <button class="filter-btn" data-region="South Asia">South Asia</button>
+    <button class="filter-btn" data-region="Southeast Asia">Southeast Asia</button>
+    <button class="filter-btn" data-region="East Asia">East Asia</button>
+    <button class="filter-btn" data-region="North Africa">North Africa</button>
+    <button class="filter-btn" data-region="West Africa">West Africa</button>
+    <button class="filter-btn" data-region="East Africa">East Africa</button>
+    <button class="filter-btn" data-region="Southern Africa">Southern Africa</button>
+    <button class="filter-btn" data-region="Central Africa">Central Africa</button>
+    <button class="filter-btn" data-region="North America">North America</button>
+    <button class="filter-btn" data-region="Central America">Central America</button>
+    <button class="filter-btn" data-region="Caribbean">Caribbean</button>
+    <button class="filter-btn" data-region="South America">South America</button>
+    <button class="filter-btn" data-region="Australasia">Australasia</button>
+    <button class="filter-btn" data-region="Melanesia">Melanesia</button>
+    <button class="filter-btn" data-region="Micronesia">Micronesia</button>
+    <button class="filter-btn" data-region="Polynesia">Polynesia</button>
+    <button class="filter-btn" data-region="Antarctica">Antarctica</button>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- CONTINENT VIEW -->
+<div id="continent-view">
+  <div class="section-label">Continents</div>
+  <div class="continent-grid" id="continent-grid"></div>
+</div>
+
+<!-- COUNTRY VIEW -->
+<div id="country-view">
+  <button class="back-btn" onclick="showContinents()">
+    ← Back to continents
+  </button>
+  <div class="country-header">
+    <div class="country-header-left">
+      <h2 id="cv-name"></h2>
+      <p id="cv-sub"></p>
+    </div>
+    <div class="country-stats">
+      <div class="stat-block">
+        <div class="stat-num" id="cv-count"></div>
+        <div class="stat-lbl">Countries</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="search-wrap">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="country-search" placeholder="Search countries…">
+  </div>
+
+  <div class="country-region-filter" id="country-region-filter"></div>
+
+  <div class="country-grid" id="country-grid">
+    <div class="no-results" id="no-results">No countries match your search.</div>
+  </div>
+</div>
+
+<script>
+const DATA = {
+  "Africa": {
+    emoji: "🌍",
+    color: "#ffb86c",
+    regions: ["North Africa","West Africa","East Africa","Southern Africa","Central Africa"],
+    countries: [
+      { name:"Algeria", capital:"Algiers", currency:"Algerian Dinar (DZD)", language:"Arabic, Tamazight", region:"North Africa", flag:"🇩🇿" },
+      { name:"Egypt", capital:"Cairo", currency:"Egyptian Pound (EGP)", language:"Arabic", region:"North Africa", flag:"🇪🇬" },
+      { name:"Libya", capital:"Tripoli", currency:"Libyan Dinar (LYD)", language:"Arabic", region:"North Africa", flag:"🇱🇾" },
+      { name:"Morocco", capital:"Rabat", currency:"Moroccan Dirham (MAD)", language:"Arabic, Tamazight", region:"North Africa", flag:"🇲🇦" },
+      { name:"Tunisia", capital:"Tunis", currency:"Tunisian Dinar (TND)", language:"Arabic", region:"North Africa", flag:"🇹🇳" },
+      { name:"Sudan", capital:"Khartoum", currency:"Sudanese Pound (SDG)", language:"Arabic, English", region:"North Africa", flag:"🇸🇩" },
+      { name:"Nigeria", capital:"Abuja", currency:"Nigerian Naira (NGN)", language:"English", region:"West Africa", flag:"🇳🇬" },
+      { name:"Ghana", capital:"Accra", currency:"Ghanaian Cedi (GHS)", language:"English", region:"West Africa", flag:"🇬🇭" },
+      { name:"Senegal", capital:"Dakar", currency:"CFA Franc (XOF)", language:"French", region:"West Africa", flag:"🇸🇳" },
+      { name:"Côte d'Ivoire", capital:"Yamoussoukro", currency:"CFA Franc (XOF)", language:"French", region:"West Africa", flag:"🇨🇮" },
+      { name:"Mali", capital:"Bamako", currency:"CFA Franc (XOF)", language:"French", region:"West Africa", flag:"🇲🇱" },
+      { name:"Burkina Faso", capital:"Ouagadougou", currency:"CFA Franc (XOF)", language:"French", region:"West Africa", flag:"🇧🇫" },
+      { name:"Guinea", capital:"Conakry", currency:"Guinean Franc (GNF)", language:"French", region:"West Africa", flag:"🇬🇳" },
+      { name:"Cameroon", capital:"Yaoundé", currency:"CFA Franc (XAF)", language:"French, English", region:"Central Africa", flag:"🇨🇲" },
+      { name:"DR Congo", capital:"Kinshasa", currency:"Congolese Franc (CDF)", language:"French", region:"Central Africa", flag:"🇨🇩" },
+      { name:"Congo", capital:"Brazzaville", currency:"CFA Franc (XAF)", language:"French", region:"Central Africa", flag:"🇨🇬" },
+      { name:"Gabon", capital:"Libreville", currency:"CFA Franc (XAF)", language:"French", region:"Central Africa", flag:"🇬🇦" },
+      { name:"Chad", capital:"N'Djamena", currency:"CFA Franc (XAF)", language:"Arabic, French", region:"Central Africa", flag:"🇹🇩" },
+      { name:"Ethiopia", capital:"Addis Ababa", currency:"Ethiopian Birr (ETB)", language:"Amharic", region:"East Africa", flag:"🇪🇹" },
+      { name:"Kenya", capital:"Nairobi", currency:"Kenyan Shilling (KES)", language:"Swahili, English", region:"East Africa", flag:"🇰🇪" },
+      { name:"Tanzania", capital:"Dodoma", currency:"Tanzanian Shilling (TZS)", language:"Swahili, English", region:"East Africa", flag:"🇹🇿" },
+      { name:"Uganda", capital:"Kampala", currency:"Ugandan Shilling (UGX)", language:"English, Swahili", region:"East Africa", flag:"🇺🇬" },
+      { name:"Rwanda", capital:"Kigali", currency:"Rwandan Franc (RWF)", language:"Kinyarwanda, English, French", region:"East Africa", flag:"🇷🇼" },
+      { name:"Somalia", capital:"Mogadishu", currency:"Somali Shilling (SOS)", language:"Somali, Arabic", region:"East Africa", flag:"🇸🇴" },
+      { name:"South Africa", capital:"Pretoria", currency:"South African Rand (ZAR)", language:"11 official languages", region:"Southern Africa", flag:"🇿🇦" },
+      { name:"Zimbabwe", capital:"Harare", currency:"Zimbabwean Dollar (ZWL)", language:"Shona, Ndebele, English", region:"Southern Africa", flag:"🇿🇼" },
+      { name:"Zambia", capital:"Lusaka", currency:"Zambian Kwacha (ZMW)", language:"English", region:"Southern Africa", flag:"🇿🇲" },
+      { name:"Mozambique", capital:"Maputo", currency:"Mozambican Metical (MZN)", language:"Portuguese", region:"Southern Africa", flag:"🇲🇿" },
+      { name:"Botswana", capital:"Gaborone", currency:"Botswana Pula (BWP)", language:"Setswana, English", region:"Southern Africa", flag:"🇧🇼" },
+      { name:"Namibia", capital:"Windhoek", currency:"Namibian Dollar (NAD)", language:"English", region:"Southern Africa", flag:"🇳🇦" },
+    ]
+  },
+  "Asia": {
+    emoji: "🌏",
+    color: "#c8b8ff",
+    regions: ["Middle East","South Asia","Southeast Asia","East Asia","Central Asia"],
+    countries: [
+      { name:"Saudi Arabia", capital:"Riyadh", currency:"Saudi Riyal (SAR)", language:"Arabic", region:"Middle East", flag:"🇸🇦" },
+      { name:"Iran", capital:"Tehran", currency:"Iranian Rial (IRR)", language:"Persian", region:"Middle East", flag:"🇮🇷" },
+      { name:"Iraq", capital:"Baghdad", currency:"Iraqi Dinar (IQD)", language:"Arabic, Kurdish", region:"Middle East", flag:"🇮🇶" },
+      { name:"Israel", capital:"Jerusalem", currency:"Israeli Shekel (ILS)", language:"Hebrew, Arabic", region:"Middle East", flag:"🇮🇱" },
+      { name:"Jordan", capital:"Amman", currency:"Jordanian Dinar (JOD)", language:"Arabic", region:"Middle East", flag:"🇯🇴" },
+      { name:"UAE", capital:"Abu Dhabi", currency:"UAE Dirham (AED)", language:"Arabic", region:"Middle East", flag:"🇦🇪" },
+      { name:"Kuwait", capital:"Kuwait City", currency:"Kuwaiti Dinar (KWD)", language:"Arabic", region:"Middle East", flag:"🇰🇼" },
+      { name:"Qatar", capital:"Doha", currency:"Qatari Riyal (QAR)", language:"Arabic", region:"Middle East", flag:"🇶🇦" },
+      { name:"Bahrain", capital:"Manama", currency:"Bahraini Dinar (BHD)", language:"Arabic", region:"Middle East", flag:"🇧🇭" },
+      { name:"Oman", capital:"Muscat", currency:"Omani Rial (OMR)", language:"Arabic", region:"Middle East", flag:"🇴🇲" },
+      { name:"Yemen", capital:"Sanaa", currency:"Yemeni Rial (YER)", language:"Arabic", region:"Middle East", flag:"🇾🇪" },
+      { name:"Syria", capital:"Damascus", currency:"Syrian Pound (SYP)", language:"Arabic", region:"Middle East", flag:"🇸🇾" },
+      { name:"Lebanon", capital:"Beirut", currency:"Lebanese Pound (LBP)", language:"Arabic", region:"Middle East", flag:"🇱🇧" },
+      { name:"India", capital:"New Delhi", currency:"Indian Rupee (INR)", language:"Hindi, English + 21 others", region:"South Asia", flag:"🇮🇳" },
+      { name:"Pakistan", capital:"Islamabad", currency:"Pakistani Rupee (PKR)", language:"Urdu, English", region:"South Asia", flag:"🇵🇰" },
+      { name:"Bangladesh", capital:"Dhaka", currency:"Bangladeshi Taka (BDT)", language:"Bengali", region:"South Asia", flag:"🇧🇩" },
+      { name:"Sri Lanka", capital:"Colombo", currency:"Sri Lankan Rupee (LKR)", language:"Sinhala, Tamil", region:"South Asia", flag:"🇱🇰" },
+      { name:"Nepal", capital:"Kathmandu", currency:"Nepali Rupee (NPR)", language:"Nepali", region:"South Asia", flag:"🇳🇵" },
+      { name:"Afghanistan", capital:"Kabul", currency:"Afghan Afghani (AFN)", language:"Pashto, Dari", region:"South Asia", flag:"🇦🇫" },
+      { name:"Maldives", capital:"Malé", currency:"Maldivian Rufiyaa (MVR)", language:"Dhivehi", region:"South Asia", flag:"🇲🇻" },
+      { name:"Bhutan", capital:"Thimphu", currency:"Bhutanese Ngultrum (BTN)", language:"Dzongkha", region:"South Asia", flag:"🇧🇹" },
+      { name:"China", capital:"Beijing", currency:"Chinese Yuan (CNY)", language:"Mandarin", region:"East Asia", flag:"🇨🇳" },
+      { name:"Japan", capital:"Tokyo", currency:"Japanese Yen (JPY)", language:"Japanese", region:"East Asia", flag:"🇯🇵" },
+      { name:"South Korea", capital:"Seoul", currency:"South Korean Won (KRW)", language:"Korean", region:"East Asia", flag:"🇰🇷" },
+      { name:"North Korea", capital:"Pyongyang", currency:"North Korean Won (KPW)", language:"Korean", region:"East Asia", flag:"🇰🇵" },
+      { name:"Taiwan", capital:"Taipei", currency:"New Taiwan Dollar (TWD)", language:"Mandarin", region:"East Asia", flag:"🇹🇼" },
+      { name:"Mongolia", capital:"Ulaanbaatar", currency:"Mongolian Tögrög (MNT)", language:"Mongolian", region:"East Asia", flag:"🇲🇳" },
+      { name:"Thailand", capital:"Bangkok", currency:"Thai Baht (THB)", language:"Thai", region:"Southeast Asia", flag:"🇹🇭" },
+      { name:"Vietnam", capital:"Hanoi", currency:"Vietnamese Đồng (VND)", language:"Vietnamese", region:"Southeast Asia", flag:"🇻🇳" },
+      { name:"Indonesia", capital:"Jakarta", currency:"Indonesian Rupiah (IDR)", language:"Indonesian", region:"Southeast Asia", flag:"🇮🇩" },
+      { name:"Philippines", capital:"Manila", currency:"Philippine Peso (PHP)", language:"Filipino, English", region:"Southeast Asia", flag:"🇵🇭" },
+      { name:"Malaysia", capital:"Kuala Lumpur", currency:"Malaysian Ringgit (MYR)", language:"Malay", region:"Southeast Asia", flag:"🇲🇾" },
+      { name:"Singapore", capital:"Singapore", currency:"Singapore Dollar (SGD)", language:"English, Malay, Tamil, Mandarin", region:"Southeast Asia", flag:"🇸🇬" },
+      { name:"Myanmar", capital:"Naypyidaw", currency:"Burmese Kyat (MMK)", language:"Burmese", region:"Southeast Asia", flag:"🇲🇲" },
+      { name:"Cambodia", capital:"Phnom Penh", currency:"Cambodian Riel (KHR)", language:"Khmer", region:"Southeast Asia", flag:"🇰🇭" },
+      { name:"Laos", capital:"Vientiane", currency:"Lao Kip (LAK)", language:"Lao", region:"Southeast Asia", flag:"🇱🇦" },
+      { name:"Kazakhstan", capital:"Astana", currency:"Kazakhstani Tenge (KZT)", language:"Kazakh, Russian", region:"Central Asia", flag:"🇰🇿" },
+      { name:"Uzbekistan", capital:"Tashkent", currency:"Uzbekistani Som (UZS)", language:"Uzbek", region:"Central Asia", flag:"🇺🇿" },
+      { name:"Turkmenistan", capital:"Ashgabat", currency:"Turkmenistani Manat (TMT)", language:"Turkmen", region:"Central Asia", flag:"🇹🇲" },
+      { name:"Tajikistan", capital:"Dushanbe", currency:"Tajikistani Somoni (TJS)", language:"Tajik", region:"Central Asia", flag:"🇹🇯" },
+      { name:"Kyrgyzstan", capital:"Bishkek", currency:"Kyrgyzstani Som (KGS)", language:"Kyrgyz, Russian", region:"Central Asia", flag:"🇰🇬" },
+    ]
+  },
+  "Europe": {
+    emoji: "🌍",
+    color: "#7fd8b4",
+    regions: ["Western Europe","Eastern Europe","Northern Europe","Southern Europe"],
+    countries: [
+      { name:"Germany", capital:"Berlin", currency:"Euro (EUR)", language:"German", region:"Western Europe", flag:"🇩🇪" },
+      { name:"France", capital:"Paris", currency:"Euro (EUR)", language:"French", region:"Western Europe", flag:"🇫🇷" },
+      { name:"Netherlands", capital:"Amsterdam", currency:"Euro (EUR)", language:"Dutch", region:"Western Europe", flag:"🇳🇱" },
+      { name:"Belgium", capital:"Brussels", currency:"Euro (EUR)", language:"Dutch, French, German", region:"Western Europe", flag:"🇧🇪" },
+      { name:"Switzerland", capital:"Bern", currency:"Swiss Franc (CHF)", language:"German, French, Italian, Romansh", region:"Western Europe", flag:"🇨🇭" },
+      { name:"Austria", capital:"Vienna", currency:"Euro (EUR)", language:"German", region:"Western Europe", flag:"🇦🇹" },
+      { name:"Luxembourg", capital:"Luxembourg City", currency:"Euro (EUR)", language:"Luxembourgish, French, German", region:"Western Europe", flag:"🇱🇺" },
+      { name:"Ireland", capital:"Dublin", currency:"Euro (EUR)", language:"Irish, English", region:"Western Europe", flag:"🇮🇪" },
+      { name:"United Kingdom", capital:"London", currency:"British Pound (GBP)", language:"English", region:"Western Europe", flag:"🇬🇧" },
+      { name:"Russia", capital:"Moscow", currency:"Russian Ruble (RUB)", language:"Russian", region:"Eastern Europe", flag:"🇷🇺" },
+      { name:"Ukraine", capital:"Kyiv", currency:"Ukrainian Hryvnia (UAH)", language:"Ukrainian", region:"Eastern Europe", flag:"🇺🇦" },
+      { name:"Poland", capital:"Warsaw", currency:"Polish Złoty (PLN)", language:"Polish", region:"Eastern Europe", flag:"🇵🇱" },
+      { name:"Czech Republic", capital:"Prague", currency:"Czech Koruna (CZK)", language:"Czech", region:"Eastern Europe", flag:"🇨🇿" },
+      { name:"Hungary", capital:"Budapest", currency:"Hungarian Forint (HUF)", language:"Hungarian", region:"Eastern Europe", flag:"🇭🇺" },
+      { name:"Romania", capital:"Bucharest", currency:"Romanian Leu (RON)", language:"Romanian", region:"Eastern Europe", flag:"🇷🇴" },
+      { name:"Bulgaria", capital:"Sofia", currency:"Bulgarian Lev (BGN)", language:"Bulgarian", region:"Eastern Europe", flag:"🇧🇬" },
+      { name:"Belarus", capital:"Minsk", currency:"Belarusian Ruble (BYN)", language:"Belarusian, Russian", region:"Eastern Europe", flag:"🇧🇾" },
+      { name:"Moldova", capital:"Chișinău", currency:"Moldovan Leu (MDL)", language:"Romanian", region:"Eastern Europe", flag:"🇲🇩" },
+      { name:"Sweden", capital:"Stockholm", currency:"Swedish Krona (SEK)", language:"Swedish", region:"Northern Europe", flag:"🇸🇪" },
+      { name:"Norway", capital:"Oslo", currency:"Norwegian Krone (NOK)", language:"Norwegian", region:"Northern Europe", flag:"🇳🇴" },
+      { name:"Denmark", capital:"Copenhagen", currency:"Danish Krone (DKK)", language:"Danish", region:"Northern Europe", flag:"🇩🇰" },
+      { name:"Finland", capital:"Helsinki", currency:"Euro (EUR)", language:"Finnish, Swedish", region:"Northern Europe", flag:"🇫🇮" },
+      { name:"Iceland", capital:"Reykjavik", currency:"Icelandic Króna (ISK)", language:"Icelandic", region:"Northern Europe", flag:"🇮🇸" },
+      { name:"Estonia", capital:"Tallinn", currency:"Euro (EUR)", language:"Estonian", region:"Northern Europe", flag:"🇪🇪" },
+      { name:"Latvia", capital:"Riga", currency:"Euro (EUR)", language:"Latvian", region:"Northern Europe", flag:"🇱🇻" },
+      { name:"Lithuania", capital:"Vilnius", currency:"Euro (EUR)", language:"Lithuanian", region:"Northern Europe", flag:"🇱🇹" },
+      { name:"Spain", capital:"Madrid", currency:"Euro (EUR)", language:"Spanish", region:"Southern Europe", flag:"🇪🇸" },
+      { name:"Italy", capital:"Rome", currency:"Euro (EUR)", language:"Italian", region:"Southern Europe", flag:"🇮🇹" },
+      { name:"Portugal", capital:"Lisbon", currency:"Euro (EUR)", language:"Portuguese", region:"Southern Europe", flag:"🇵🇹" },
+      { name:"Greece", capital:"Athens", currency:"Euro (EUR)", language:"Greek", region:"Southern Europe", flag:"🇬🇷" },
+      { name:"Croatia", capital:"Zagreb", currency:"Euro (EUR)", language:"Croatian", region:"Southern Europe", flag:"🇭🇷" },
+      { name:"Serbia", capital:"Belgrade", currency:"Serbian Dinar (RSD)", language:"Serbian", region:"Southern Europe", flag:"🇷🇸" },
+      { name:"Albania", capital:"Tirana", currency:"Albanian Lek (ALL)", language:"Albanian", region:"Southern Europe", flag:"🇦🇱" },
+      { name:"North Macedonia", capital:"Skopje", currency:"Macedonian Denar (MKD)", language:"Macedonian, Albanian", region:"Southern Europe", flag:"🇲🇰" },
+      { name:"Slovenia", capital:"Ljubljana", currency:"Euro (EUR)", language:"Slovenian", region:"Southern Europe", flag:"🇸🇮" },
+      { name:"Slovakia", capital:"Bratislava", currency:"Euro (EUR)", language:"Slovak", region:"Eastern Europe", flag:"🇸🇰" },
+    ]
+  },
+  "North America": {
+    emoji: "🌎",
+    color: "#7fd8b4",
+    regions: ["North America","Central America","Caribbean"],
+    countries: [
+      { name:"United States", capital:"Washington D.C.", currency:"US Dollar (USD)", language:"English", region:"North America", flag:"🇺🇸" },
+      { name:"Canada", capital:"Ottawa", currency:"Canadian Dollar (CAD)", language:"English, French", region:"North America", flag:"🇨🇦" },
+      { name:"Mexico", capital:"Mexico City", currency:"Mexican Peso (MXN)", language:"Spanish", region:"North America", flag:"🇲🇽" },
+      { name:"Guatemala", capital:"Guatemala City", currency:"Guatemalan Quetzal (GTQ)", language:"Spanish", region:"Central America", flag:"🇬🇹" },
+      { name:"Belize", capital:"Belmopan", currency:"Belize Dollar (BZD)", language:"English, Spanish, Creole", region:"Central America", flag:"🇧🇿" },
+      { name:"Honduras", capital:"Tegucigalpa", currency:"Honduran Lempira (HNL)", language:"Spanish", region:"Central America", flag:"🇭🇳" },
+      { name:"El Salvador", capital:"San Salvador", currency:"US Dollar (USD)", language:"Spanish", region:"Central America", flag:"🇸🇻" },
+      { name:"Nicaragua", capital:"Managua", currency:"Nicaraguan Córdoba (NIO)", language:"Spanish", region:"Central America", flag:"🇳🇮" },
+      { name:"Costa Rica", capital:"San José", currency:"Costa Rican Colón (CRC)", language:"Spanish", region:"Central America", flag:"🇨🇷" },
+      { name:"Panama", capital:"Panama City", currency:"Panamanian Balboa / USD", language:"Spanish", region:"Central America", flag:"🇵🇦" },
+      { name:"Cuba", capital:"Havana", currency:"Cuban Peso (CUP)", language:"Spanish", region:"Caribbean", flag:"🇨🇺" },
+      { name:"Jamaica", capital:"Kingston", currency:"Jamaican Dollar (JMD)", language:"English", region:"Caribbean", flag:"🇯🇲" },
+      { name:"Haiti", capital:"Port-au-Prince", currency:"Haitian Gourde (HTG)", language:"Haitian Creole, French", region:"Caribbean", flag:"🇭🇹" },
+      { name:"Dominican Republic", capital:"Santo Domingo", currency:"Dominican Peso (DOP)", language:"Spanish", region:"Caribbean", flag:"🇩🇴" },
+      { name:"Trinidad & Tobago", capital:"Port of Spain", currency:"Trinidad & Tobago Dollar (TTD)", language:"English", region:"Caribbean", flag:"🇹🇹" },
+      { name:"Bahamas", capital:"Nassau", currency:"Bahamian Dollar (BSD)", language:"English", region:"Caribbean", flag:"🇧🇸" },
+      { name:"Barbados", capital:"Bridgetown", currency:"Barbadian Dollar (BBD)", language:"English", region:"Caribbean", flag:"🇧🇧" },
+    ]
+  },
+  "South America": {
+    emoji: "🌎",
+    color: "#ffb86c",
+    regions: ["South America"],
+    countries: [
+      { name:"Brazil", capital:"Brasília", currency:"Brazilian Real (BRL)", language:"Portuguese", region:"South America", flag:"🇧🇷" },
+      { name:"Argentina", capital:"Buenos Aires", currency:"Argentine Peso (ARS)", language:"Spanish", region:"South America", flag:"🇦🇷" },
+      { name:"Colombia", capital:"Bogotá", currency:"Colombian Peso (COP)", language:"Spanish", region:"South America", flag:"🇨🇴" },
+      { name:"Chile", capital:"Santiago", currency:"Chilean Peso (CLP)", language:"Spanish", region:"South America", flag:"🇨🇱" },
+      { name:"Peru", capital:"Lima", currency:"Peruvian Sol (PEN)", language:"Spanish, Quechua, Aymara", region:"South America", flag:"🇵🇪" },
+      { name:"Venezuela", capital:"Caracas", currency:"Venezuelan Bolívar (VES)", language:"Spanish", region:"South America", flag:"🇻🇪" },
+      { name:"Ecuador", capital:"Quito", currency:"US Dollar (USD)", language:"Spanish", region:"South America", flag:"🇪🇨" },
+      { name:"Bolivia", capital:"Sucre / La Paz", currency:"Bolivian Boliviano (BOB)", language:"Spanish, Quechua, Aymara", region:"South America", flag:"🇧🇴" },
+      { name:"Paraguay", capital:"Asunción", currency:"Paraguayan Guaraní (PYG)", language:"Spanish, Guaraní", region:"South America", flag:"🇵🇾" },
+      { name:"Uruguay", capital:"Montevideo", currency:"Uruguayan Peso (UYU)", language:"Spanish", region:"South America", flag:"🇺🇾" },
+      { name:"Guyana", capital:"Georgetown", currency:"Guyanese Dollar (GYD)", language:"English", region:"South America", flag:"🇬🇾" },
+      { name:"Suriname", capital:"Paramaribo", currency:"Surinamese Dollar (SRD)", language:"Dutch", region:"South America", flag:"🇸🇷" },
+    ]
+  },
+  "Oceania": {
+    emoji: "🌏",
+    color: "#80d8ff",
+    regions: ["Australasia","Melanesia","Micronesia","Polynesia"],
+    countries: [
+      { name:"Australia", capital:"Canberra", currency:"Australian Dollar (AUD)", language:"English", region:"Australasia", flag:"🇦🇺" },
+      { name:"New Zealand", capital:"Wellington", currency:"New Zealand Dollar (NZD)", language:"English, Māori", region:"Australasia", flag:"🇳🇿" },
+      { name:"Papua New Guinea", capital:"Port Moresby", currency:"Papua New Guinean Kina (PGK)", language:"English, Tok Pisin, Hiri Motu", region:"Melanesia", flag:"🇵🇬" },
+      { name:"Fiji", capital:"Suva", currency:"Fijian Dollar (FJD)", language:"English, Fijian, Hindi", region:"Melanesia", flag:"🇫🇯" },
+      { name:"Vanuatu", capital:"Port Vila", currency:"Vanuatu Vatu (VUV)", language:"Bislama, English, French", region:"Melanesia", flag:"🇻🇺" },
+      { name:"Solomon Islands", capital:"Honiara", currency:"Solomon Islands Dollar (SBD)", language:"English", region:"Melanesia", flag:"🇸🇧" },
+      { name:"Micronesia", capital:"Palikir", currency:"US Dollar (USD)", language:"English", region:"Micronesia", flag:"🇫🇲" },
+      { name:"Palau", capital:"Ngerulmud", currency:"US Dollar (USD)", language:"Palauan, English", region:"Micronesia", flag:"🇵🇼" },
+      { name:"Marshall Islands", capital:"Majuro", currency:"US Dollar (USD)", language:"Marshallese, English", region:"Micronesia", flag:"🇲🇭" },
+      { name:"Samoa", capital:"Apia", currency:"Samoan Tālā (WST)", language:"Samoan, English", region:"Polynesia", flag:"🇼🇸" },
+      { name:"Tonga", capital:"Nukuʻalofa", currency:"Tongan Paʻanga (TOP)", language:"Tongan, English", region:"Polynesia", flag:"🇹🇴" },
+      { name:"Kiribati", capital:"South Tarawa", currency:"Australian Dollar (AUD)", language:"English, Gilbertese", region:"Polynesia", flag:"🇰🇮" },
+      { name:"Tuvalu", capital:"Funafuti", currency:"Australian Dollar (AUD)", language:"Tuvaluan, English", region:"Polynesia", flag:"🇹🇻" },
+    ]
+  },
+  "Antarctica": {
+    emoji: "🧊",
+    color: "#b0e8ff",
+    regions: ["Antarctica"],
+    countries: [
+      { name:"No sovereign nations", capital:"—", currency:"—", language:"—", region:"Antarctica", flag:"🏔️" },
+      { name:"McMurdo Station (US)", capital:"—", currency:"USD used", language:"English", region:"Antarctica", flag:"🇺🇸" },
+      { name:"Amundsen–Scott Station (US)", capital:"—", currency:"USD used", language:"English", region:"Antarctica", flag:"🇺🇸" },
+      { name:"Vostok Station (Russia)", capital:"—", currency:"RUB used", language:"Russian", region:"Antarctica", flag:"🇷🇺" },
+    ]
+  },
+};
+
+let activeRegion = "all";
+let currentContinent = null;
+let activeSubRegion = "all";
+
+function buildContinentGrid() {
+  const grid = document.getElementById("continent-grid");
+  grid.innerHTML = "";
+  Object.entries(DATA).forEach(([name, data], i) => {
+    const card = document.createElement("div");
+    card.className = "continent-card";
+    card.dataset.continent = name;
+    card.dataset.regions = data.regions.join(",");
+    card.innerHTML = `
+      <div class="continent-top">
+        <div class="continent-icon" style="background:${data.color}22; color:${data.color}; font-size:1.4rem">${data.emoji}</div>
+        <div class="continent-num">${String(i + 1).padStart(2,"0")}</div>
+      </div>
+      <div class="continent-name">${name}</div>
+      <div class="continent-regions">${data.regions.map(r=>`<span class="region-tag">${r}</span>`).join("")}</div>
+      <div class="continent-meta">
+        <div class="continent-count"><strong>${data.countries.length}</strong> countries</div>
+        <div class="continent-arrow">→</div>
+      </div>
+    `;
+    card.addEventListener("click", () => showCountries(name));
+    grid.appendChild(card);
+  });
+}
+
+function applyRegionFilter(region) {
+  activeRegion = region;
+  document.querySelectorAll(".filter-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.region === region);
+  });
+
+  const cards = document.querySelectorAll(".continent-card");
+  let anyVisible = false;
+  cards.forEach(card => {
+    if (region === "all") {
+      card.classList.remove("hidden");
+      anyVisible = true;
+    } else {
+      const regions = card.dataset.regions.split(",");
+      const match = regions.some(r => r.trim() === region);
+      card.classList.toggle("hidden", !match);
+      if (match) anyVisible = true;
+    }
+  });
+}
+
+function showCountries(continentName) {
+  currentContinent = continentName;
+  activeSubRegion = "all";
+  const data = DATA[continentName];
+
+  document.getElementById("continent-view").style.display = "none";
+  document.getElementById("country-view").style.display = "block";
+  document.getElementById("cv-name").textContent = continentName;
+  document.getElementById("cv-sub").textContent = data.regions.join(" · ");
+  document.getElementById("cv-count").textContent = data.countries.length;
+  document.getElementById("country-search").value = "";
+
+  buildSubRegionFilter(data);
+  buildCountryGrid(data.countries);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function buildSubRegionFilter(data) {
+  const bar = document.getElementById("country-region-filter");
+  bar.innerHTML = `<button class="filter-btn active" data-sub="all">All</button>`;
+  data.regions.forEach(r => {
+    const btn = document.createElement("button");
+    btn.className = "filter-btn";
+    btn.dataset.sub = r;
+    btn.textContent = r;
+    bar.appendChild(btn);
+  });
+  bar.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeSubRegion = btn.dataset.sub;
+      bar.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      filterCountryCards();
+    });
+  });
+}
+
+function buildCountryGrid(countries) {
+  const grid = document.getElementById("country-grid");
+  grid.querySelectorAll(".country-card").forEach(c => c.remove());
+  countries.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "country-card";
+    card.dataset.region = c.region;
+    card.dataset.name = c.name.toLowerCase();
+    card.innerHTML = `
+      <div class="cc-flag">${c.flag}</div>
+      <div class="cc-name">${c.name}</div>
+      <div class="cc-details">
+        <div class="cc-detail">
+          <span class="cc-detail-key">Capital</span>
+          <span class="cc-detail-val">${c.capital}</span>
+        </div>
+        <div class="cc-detail">
+          <span class="cc-detail-key">Currency</span>
+          <span class="cc-detail-val">${c.currency}</span>
+        </div>
+        <div class="cc-detail">
+          <span class="cc-detail-key">Language</span>
+          <span class="cc-detail-val">${c.language}</span>
+          <span class="cc-badge">${c.region}</span>
+        </div>
+      </div>
+    `;
+    grid.insertBefore(card, document.getElementById("no-results"));
+  });
+}
+
+function filterCountryCards() {
+  const search = document.getElementById("country-search").value.toLowerCase();
+  const cards = document.querySelectorAll(".country-card");
+  let visible = 0;
+  cards.forEach(card => {
+    const regionMatch = activeSubRegion === "all" || card.dataset.region === activeSubRegion;
+    const searchMatch = !search || card.dataset.name.includes(search);
+    const show = regionMatch && searchMatch;
+    card.classList.toggle("hidden", !show);
+    if (show) visible++;
+  });
+  document.getElementById("no-results").style.display = visible === 0 ? "block" : "none";
+}
+
+function showContinents() {
+  document.getElementById("country-view").style.display = "none";
+  document.getElementById("continent-view").style.display = "block";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// INIT
+buildContinentGrid();
+
+document.getElementById("filter-bar").addEventListener("click", e => {
+  if (e.target.classList.contains("filter-btn")) {
+    applyRegionFilter(e.target.dataset.region);
+  }
+});
+
+document.getElementById("country-search").addEventListener("input", filterCountryCards);
+</script>
+</body>
+</html>
